@@ -1,0 +1,79 @@
+@page "/stores"
+@using FnBReport.GUI.ViewModels
+@using FnBReport.GUI.Services
+@inject IStoreAppService StoreService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h5" Class="mb-4">Quản lý Cửa hàng</MudText>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => OpenDialog())" Class="mb-2">Thêm mới</MudButton>
+
+<MudDataGrid Items="@Stores" Filterable="true" SortMode="SortMode.Multiple" Groupable="true">
+    <Columns>
+        <PropertyColumn Property="x => x.Number" Title="Mã CH" />
+        <PropertyColumn Property="x => x.Name" Title="Tên Cửa hàng" />
+        <PropertyColumn Property="x => x.GroupId" Title="Nhóm CH" />
+        <PropertyColumn Property="x => x.NumOfTables" Title="Tổng bàn" />
+        <TemplateColumn Title="Thao tác">
+            <CellTemplate>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => OpenDialog(context.Item))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => Delete(context.Item.Id))" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</MudDataGrid>
+
+@code {
+    private IEnumerable<StoreViewModel> Stores = new List<StoreViewModel>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        Stores = await StoreService.GetAllStoresAsync();
+    }
+
+    private async Task OpenDialog(StoreViewModel? item = null)
+    {
+        var parameters = new DialogParameters();
+        if (item != null)
+        {
+            parameters.Add("Model", new StoreViewModel 
+            { 
+                Id = item.Id, Number = item.Number, Name = item.Name, 
+                GroupId = item.GroupId, NumOfTables = item.NumOfTables,
+                MinMenuSelling = item.MinMenuSelling, MinSalesContribution = item.MinSalesContribution
+            });
+        }
+        else
+        {
+            parameters.Add("Model", new StoreViewModel());
+        }
+
+        var dialog = await DialogService.ShowAsync<StoreDialog>("Thông tin Cửa hàng", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadData();
+        }
+    }
+
+    private async Task Delete(int id)
+    {
+        var result = await StoreService.DeleteStoreAsync(id, "admin");
+        if (result.OK)
+        {
+            Snackbar.Add("Xóa thành công", Severity.Success);
+            await LoadData();
+        }
+        else
+        {
+            Snackbar.Add(result.Message, Severity.Error);
+        }
+    }
+}

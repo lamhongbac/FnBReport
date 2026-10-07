@@ -1,0 +1,39 @@
+@using FnBReport.GUI.ViewModels
+@using FnBReport.GUI.Services
+@inject IStoreAppService StoreService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <EditForm Model="@Model" OnValidSubmit="OnValidSubmit">
+            <DataAnnotationsValidator />
+            <MudTextField @bind-Value="Model.Name" Label="Tên Nhóm" For="@(() => Model.Name)" />
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Hủy</MudButton>
+        <MudButton Color="Color.Primary" OnClick="OnValidSubmit">Lưu</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private StoreGroupViewModel Model { get; set; } = new();
+
+    private async Task OnValidSubmit()
+    {
+        var result = await StoreService.CreateStoreGroupAsync(Model, "admin");
+        if (result.OK)
+        {
+            Snackbar.Add("Thêm nhóm thành công", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(Model));
+        }
+        else
+        {
+            Snackbar.Add(result.Message, Severity.Error);
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

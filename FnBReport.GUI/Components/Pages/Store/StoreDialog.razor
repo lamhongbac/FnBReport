@@ -1,0 +1,80 @@
+@using FnBReport.GUI.ViewModels
+@using FnBReport.GUI.Services
+@inject IStoreAppService StoreService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <EditForm Model="@Model" OnValidSubmit="OnValidSubmit">
+            <DataAnnotationsValidator />
+            <MudTextField @bind-Value="Model.Number" Label="Mã Cửa hàng" For="@(() => Model.Number)" />
+            <MudTextField @bind-Value="Model.Name" Label="Tên Cửa hàng" For="@(() => Model.Name)" />
+            
+            <div class="d-flex align-center gap-2 mt-2">
+                <MudSelect T="int" @bind-Value="Model.GroupId" Label="Nhóm Cửa hàng" AnchorOrigin="Origin.BottomCenter">
+                    @foreach (var g in Groups)
+                    {
+                        <MudSelectItem Value="@g.Id">@g.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Secondary" OnClick="OpenQuickAddGroup" title="Thêm nhanh Nhóm CH" />
+            </div>
+
+            <MudNumericField @bind-Value="Model.NumOfTables" Label="Tổng số bàn" />
+            <MudNumericField @bind-Value="Model.MinMenuSelling" Label="Sàn doanh số (MinMenuSelling)" />
+            <MudNumericField @bind-Value="Model.MinSalesContribution" Label="Sàn đóng góp (MinSalesContribution)" />
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Hủy</MudButton>
+        <MudButton Color="Color.Primary" OnClick="OnValidSubmit">Lưu</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public StoreViewModel Model { get; set; } = new();
+
+    private IEnumerable<StoreGroupViewModel> Groups = new List<StoreGroupViewModel>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Groups = await StoreService.GetAllStoreGroupsAsync();
+    }
+
+    private async Task OpenQuickAddGroup()
+    {
+        var dialog = await DialogService.ShowAsync<StoreGroupDialog>("Thêm Nhóm Cửa Hàng");
+        var result = await dialog.Result;
+        
+        if (!result.Canceled && result.Data != null)
+        {
+            var newGroup = result.Data as StoreGroupViewModel;
+            if (newGroup != null)
+            {
+                // Refresh groups
+                Groups = await StoreService.GetAllStoreGroupsAsync();
+                Model.GroupId = newGroup.Id; // Auto select the newly created group
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task OnValidSubmit()
+    {
+        var result = await StoreService.SaveStoreAsync(Model, "admin");
+        if (result.OK)
+        {
+            Snackbar.Add("Lưu thành công", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            Snackbar.Add(result.Message, Severity.Error);
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

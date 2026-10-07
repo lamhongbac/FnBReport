@@ -1,0 +1,80 @@
+I Mục tiêu Ứng dụng:
+Báo cáo phân tích hiệu quả tổ chức menu item, thông qua thống kê giao dịch
+
+II Mô tả:
+Các Store manager: nhập báo cáo Sale của cửa hàng
+Hệ thống thông qua công thức tính ra các báo cáo phân tích 
+theo công thức format cung cấp từ đó là cơ sở cho BOD ra quyết định kinh doanh
+Ứng dụng này là 1 module nhỏ trong hệ thống báo cáo của nhà hàng
+
+III Thiết kế Cơ sở DL (CSDL)
+
+Danh sach Master Data
+
+ProductGroup: nhóm sản phẩm (menu Item)
+Product: Danh mục Sản phẩm
+StoreGroup: Nhóm kho
+Store: danh mục kho (cửa hàng), trong này có 1 số thông tin phục vụ lập báo cáo
+như tổng số bàn, MIN_Menu_Selling (mức sell sàn) MIN_Sales_Contribution (mức sàn contribution)
+
+Danh sach Bảng Giao dịch
+MonthlySaleHeader: thông tin chung về sale của nhà hàng theo tháng
+MonthlySale: chi tiết sale của nhà hàng theo tháng liên kết đến header
+trong bảng này có 1 số field sẽ được tính toán bởi ứng dụng thông qua button 
+Các field tính toán này có thể tính lại khi nạp lại data
+
+
+Qui trình Lap Bao cao
+Giả sử như master data đã khai báo (Menu, store)
+
+Qua cac buoc sau=>
+Direction: Menu-> MenuMix Report
+ 
+b1: Form khai báo (Store+Month)
+
++chon Store (dropdown), 
++chon year/month (Calendar picker)
+
++button OK=>Open Form lập báo cáo (Header-Detail)
+=> processing...
+Sự kiên On Init =>kiem tra data para: (storeCode/Id, Year,Month) 
+bảng:MonthlySaleHeader
+
+1/nếu có Data load  Data lên form
+ 
+2/neu kg có copy data từ Store+Product load lên form
+
+3/ Form header (master) show các thông tin sau
++Year 
++Month 
+Store Name (From Store table)
+Store Group Name (link to StoreGroup table)
+4/Form Child (Detail)
+Detail: có 2 tab
+tab1: là 1 grid detail sale info
+tab2: là grid tính toán (sẽ chi tiết ở mục sau)
+
+Notes:
+1.trên header form có cac button
+
++Button Import Data: Open form "import monthly sale data"
++Button Calculation: tính toán các chỉ số
++Button Export: export ra báo cáo theo format 
+
+
+2.Form Import monthly sale Data 
+Khi open form Điền sẵn thông tin năm/tháng, storeCode/name
+
++button Export template=> sẽ căn cứ vào template đính kèm export để người dùng có thông tin để nhập số sale
+(điều này đảm bảo kg có sai sót về mã)
+Export Data ( file excel co 2 sheet "StoreInformation", và "Data")
+Xem mô tả template MonthltSaleTemplate
+Sau đó user nhập data (số sale) vào export template 
++Button import: nhập data vào 2 bảng Monthly sale và Monthly sale header
+Import-> chọn file=>import=> show Data lên Grid
+
+trong template có Hướng dẫn: 
+Các dòng có header mầu đỏ là người dùng nhập vào, 
+phần còn lại do hệ thống sinh ra, 
+màu vàng người dùng có thể thay đổi
+
