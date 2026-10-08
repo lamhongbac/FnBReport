@@ -78,3 +78,8 @@ Các dòng có header mầu đỏ là người dùng nhập vào,
 phần còn lại do hệ thống sinh ra, 
 màu vàng người dùng có thể thay đổi
 
+Lưu ý kỹ thuật khi Import:
+Hệ thống sử dụng cơ chế Dynamic Header Mapping tích hợp hàm NormalizeHeader để ánh xạ tên cột.
+- Cho phép người dùng linh hoạt đổi vị trí cột.
+- Tự động chuẩn hóa dấu tiếng Việt (ví dụ: "Giá bán", "Gia ban", "Giaban" đều được hiểu chung là "giaban").
+- Giao diện lưới Xem trước (Preview) sẽ luôn lấy và hiển thị giá trị Giá bán / Giá vốn thực tế nhất trong file Excel (kể cả khi đã bị thay đổi) để người dùng xác nhận trước khi lưu vào DB.

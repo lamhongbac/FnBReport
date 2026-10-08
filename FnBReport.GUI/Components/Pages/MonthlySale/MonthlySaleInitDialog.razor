@@ -1,0 +1,51 @@
+@using FnBReport.GUI.ViewModels
+@using FnBReport.GUI.Services
+@inject IStoreAppService StoreService
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm Model="@Model" @ref="form">
+            <MudSelect T="string" Label="Cửa hàng" @bind-Value="Model.StoreCode" Required="true" RequiredError="Vui lòng chọn cửa hàng">
+                @foreach (var store in stores)
+                {
+                    <MudSelectItem Value="@store.Number">@store.Number - @store.Name</MudSelectItem>
+                }
+            </MudSelect>
+            <MudDatePicker Label="Tháng báo cáo" @bind-Date="Model.ReportMonth" OpenTo="OpenTo.Month" FixDay="1" DateFormat="MM/yyyy" Required="true" RequiredError="Vui lòng chọn tháng/năm" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Hủy</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Nhập Báo cáo Bán hàng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    
+    private MonthlySaleInitViewModel Model = new MonthlySaleInitViewModel();
+    private IEnumerable<StoreViewModel> stores = new List<StoreViewModel>();
+    private MudForm form = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        stores = await StoreService.GetAllStoresAsync();
+    }
+
+    private async Task Submit()
+    {
+        await form.Validate();
+        if (form.IsValid)
+        {
+            var year = Model.ReportMonth?.Year ?? DateTime.Now.Year;
+            var month = Model.ReportMonth?.Month ?? DateTime.Now.Month;
+            MudDialog.Close(DialogResult.Ok(true));
+            NavigationManager.NavigateTo($"/monthly-sale?storeCode={Model.StoreCode}&year={year}&month={month}");
+        }
+    }
+
+    void Cancel() => MudDialog.Cancel();
+}

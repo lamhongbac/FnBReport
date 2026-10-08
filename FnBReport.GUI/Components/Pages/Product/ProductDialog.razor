@@ -1,6 +1,6 @@
 @using FnBReport.GUI.ViewModels
 @using FnBReport.GUI.Services
-@inject IStoreAppService StoreService
+@inject IProductAppService ProductService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -10,30 +10,31 @@
             <DataAnnotationsValidator />
             <MudGrid>
                 <MudItem xs="12" sm="6">
-                    <MudTextField @bind-Value="Model.Number" Label="Mã Cửa hàng" For="@(() => Model.Number)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudTextField @bind-Value="Model.Number" Label="Mã Sản phẩm" For="@(() => Model.Number)" Variant="Variant.Outlined" Margin="Margin.Dense" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudTextField @bind-Value="Model.Name" Label="Tên Cửa hàng" For="@(() => Model.Name)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudTextField @bind-Value="Model.Name" Label="Tên Sản phẩm" For="@(() => Model.Name)" Variant="Variant.Outlined" Margin="Margin.Dense" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
                     <div class="d-flex align-center gap-2">
-                        <MudSelect T="int" @bind-Value="Model.GroupId" Label="Nhóm Cửa hàng" Variant="Variant.Outlined" Margin="Margin.Dense" AnchorOrigin="Origin.BottomCenter">
+                        <!-- GroupCode maps to ProductGroup.Number -->
+                        <MudSelect T="string" @bind-Value="Model.GroupCode" Label="Nhóm Sản phẩm" Variant="Variant.Outlined" Margin="Margin.Dense" AnchorOrigin="Origin.BottomCenter">
                             @foreach (var g in Groups)
                             {
-                                <MudSelectItem Value="@g.Id">@g.Name</MudSelectItem>
+                                <MudSelectItem Value="@g.Number">@g.Name</MudSelectItem>
                             }
                         </MudSelect>
-                        <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small" OnClick="OpenQuickAddGroup" title="Thêm nhanh Nhóm CH" Class="mt-1" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small" OnClick="OpenQuickAddGroup" title="Thêm nhanh Nhóm SP" Class="mt-1" />
                     </div>
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudNumericField @bind-Value="Model.NumOfTables" Label="Tổng số bàn" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudTextField @bind-Value="Model.Unit" Label="Đơn vị tính" Variant="Variant.Outlined" Margin="Margin.Dense" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudNumericField @bind-Value="Model.MinMenuSelling" Label="Sàn doanh số" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudNumericField @bind-Value="Model.SellingPrice" Label="Giá bán" Variant="Variant.Outlined" Margin="Margin.Dense" Format="N0" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudNumericField @bind-Value="Model.MinSalesContribution" Label="Sàn đóng góp" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudNumericField @bind-Value="Model.Cosprice" Label="Giá vốn" Variant="Variant.Outlined" Margin="Margin.Dense" Format="N0" />
                 </MudItem>
             </MudGrid>
         </EditForm>
@@ -46,27 +47,27 @@
 
 @code {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
-    [Parameter] public StoreViewModel Model { get; set; } = new();
-    private IEnumerable<StoreGroupViewModel> Groups = new List<StoreGroupViewModel>();
+    [Parameter] public ProductViewModel Model { get; set; } = new();
+    private IEnumerable<ProductGroupViewModel> Groups = new List<ProductGroupViewModel>();
 
     protected override async Task OnInitializedAsync()
     {
-        Groups = await StoreService.GetAllStoreGroupsAsync();
+        Groups = await ProductService.GetAllProductGroupsAsync();
     }
 
     private async Task OpenQuickAddGroup()
     {
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
-        var dialog = await DialogService.ShowAsync<StoreGroupDialog>("Thêm Nhóm Cửa Hàng", options);
+        var dialog = await DialogService.ShowAsync<ProductGroupDialog>("Thêm Nhóm Sản phẩm", options);
         var result = await dialog.Result;
         
         if (!result.Canceled && result.Data != null)
         {
-            var newGroup = result.Data as StoreGroupViewModel;
-            if (newGroup != null && newGroup.Id > 0)
+            var newGroup = result.Data as ProductGroupViewModel;
+            if (newGroup != null && !string.IsNullOrEmpty(newGroup.Number))
             {
-                Groups = await StoreService.GetAllStoreGroupsAsync();
-                Model.GroupId = newGroup.Id;
+                Groups = await ProductService.GetAllProductGroupsAsync();
+                Model.GroupCode = newGroup.Number;
                 StateHasChanged();
             }
         }
@@ -74,7 +75,7 @@
 
     private async Task OnValidSubmit()
     {
-        var result = await StoreService.SaveStoreAsync(Model, "admin");
+        var result = await ProductService.SaveProductAsync(Model, "admin");
         if (result.OK)
         {
             Snackbar.Add("Lưu thành công", Severity.Success);

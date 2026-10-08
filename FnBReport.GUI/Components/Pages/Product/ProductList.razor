@@ -1,13 +1,13 @@
-@page "/stores"
+@page "/products"
 @using FnBReport.GUI.ViewModels
 @using FnBReport.GUI.Services
-@inject IStoreAppService StoreService
+@inject IProductAppService ProductService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject IExcelService ExcelService
 @inject IJSRuntime JS
 
-<MudText Typo="Typo.h5" Class="mb-4">Quản lý Cửa hàng</MudText>
+<MudText Typo="Typo.h5" Class="mb-4">Quản lý Sản phẩm</MudText>
 
 <div class="d-flex gap-2 mb-2">
     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => OpenDialog())">Thêm mới</MudButton>
@@ -30,21 +30,23 @@
 
     <MudDataGrid Items="@previewData" Hover="true">
         <Columns>
-            <PropertyColumn Property="x => x.Number" Title="Mã CH" />
-            <PropertyColumn Property="x => x.Name" Title="Tên Cửa hàng" />
-            <PropertyColumn Property="x => x.GroupId" Title="Nhóm (ID)" />
-            <PropertyColumn Property="x => x.NumOfTables" Title="Số bàn" />
+            <PropertyColumn Property="x => x.Number" Title="Mã SP" />
+            <PropertyColumn Property="x => x.Name" Title="Tên Sản phẩm" />
+            <PropertyColumn Property="x => x.GroupCode" Title="Nhóm SP" />
+            <PropertyColumn Property="x => x.SellingPrice" Title="Giá bán" Format="N0" />
+            <PropertyColumn Property="x => x.Cosprice" Title="Giá vốn" Format="N0" />
         </Columns>
     </MudDataGrid>
 }
 else
 {
-    <MudDataGrid Items="@Stores" Filterable="true" SortMode="SortMode.Multiple" Groupable="true">
+    <MudDataGrid Items="@Products" Filterable="true" SortMode="SortMode.Multiple" Groupable="true">
         <Columns>
-            <PropertyColumn Property="x => x.Number" Title="Mã CH" />
-            <PropertyColumn Property="x => x.Name" Title="Tên Cửa hàng" />
-            <PropertyColumn Property="x => x.GroupId" Title="Nhóm CH" />
-            <PropertyColumn Property="x => x.NumOfTables" Title="Tổng bàn" />
+            <PropertyColumn Property="x => x.Number" Title="Mã SP" />
+            <PropertyColumn Property="x => x.Name" Title="Tên Sản phẩm" />
+            <PropertyColumn Property="x => x.GroupCode" Title="Nhóm SP" />
+            <PropertyColumn Property="x => x.SellingPrice" Title="Giá bán" Format="N0" />
+            <PropertyColumn Property="x => x.Cosprice" Title="Giá vốn" Format="N0" />
             <TemplateColumn Title="Thao tác">
                 <CellTemplate>
                     <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => OpenDialog(context.Item))" />
@@ -56,8 +58,8 @@ else
 }
 
 @code {
-    private IEnumerable<StoreViewModel> Stores = new List<StoreViewModel>();
-    private List<StoreViewModel>? previewData = null;
+    private IEnumerable<ProductViewModel> Products = new List<ProductViewModel>();
+    private List<ProductViewModel>? previewData = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -66,28 +68,28 @@ else
 
     private async Task LoadData()
     {
-        Stores = await StoreService.GetAllStoresAsync();
+        Products = await ProductService.GetAllProductsAsync();
     }
 
-    private async Task OpenDialog(StoreViewModel? item = null)
+    private async Task OpenDialog(ProductViewModel? item = null)
     {
         var parameters = new DialogParameters();
         if (item != null)
         {
-            parameters.Add("Model", new StoreViewModel 
+            parameters.Add("Model", new ProductViewModel 
             { 
                 Id = item.Id, Number = item.Number, Name = item.Name, 
-                GroupId = item.GroupId, NumOfTables = item.NumOfTables,
-                MinMenuSelling = item.MinMenuSelling, MinSalesContribution = item.MinSalesContribution
+                GroupCode = item.GroupCode, Unit = item.Unit,
+                Cosprice = item.Cosprice, SellingPrice = item.SellingPrice
             });
         }
         else
         {
-            parameters.Add("Model", new StoreViewModel());
+            parameters.Add("Model", new ProductViewModel());
         }
 
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
-        var dialog = await DialogService.ShowAsync<StoreDialog>("Thông tin Cửa hàng", parameters, options);
+        var dialog = await DialogService.ShowAsync<ProductDialog>("Thông tin Sản phẩm", parameters, options);
         var result = await dialog.Result;
 
         if (!result.Canceled)
@@ -98,35 +100,34 @@ else
 
     private async Task Delete(int id)
     {
-        var result = await StoreService.DeleteStoreAsync(id, "admin");
-        if (result.OK)
+        var confirm = await DialogService.ShowMessageBoxAsync("Xác nhận", "Bạn có chắc chắn muốn xóa sản phẩm này?", yesText: "Xóa", cancelText: "Hủy");
+        if (confirm == true)
         {
-            Snackbar.Add("Xóa thành công", Severity.Success);
-            await LoadData();
-        }
-        else
-        {
-            Snackbar.Add(result.Message, Severity.Error);
+            var result = await ProductService.DeleteProductAsync(id, "admin");
+            if (result.OK)
+            {
+                Snackbar.Add("Xóa thành công", Severity.Success);
+                await LoadData();
+            }
+            else
+            {
+                Snackbar.Add(result.Message, Severity.Error);
+            }
         }
     }
 
     private async Task DownloadTemplate()
     {
-        var columns = new[] { "Mã Cửa hàng", "Tên Cửa hàng", "Nhóm Cửa hàng (Mã Nhóm)", "Số bàn", "Doanh thu tối thiểu", "Tỷ lệ đóng góp" };
+        var columns = new[] { "Mã SP", "Tên Sản phẩm", "Nhóm SP (Mã)", "Đơn vị tính", "Giá bán", "Giá vốn" };
 
-        // Lấy danh sách nhóm để tạo reference sheet
-        var groups = await StoreService.GetAllStoreGroupsAsync();
-        var refData = new List<string[]> { new[] { "Mã Nhóm", "Tên Nhóm" } }; // Header
+        var groups = await ProductService.GetAllProductGroupsAsync();
+        var refData = new List<string[]> { new[] { "Mã Nhóm", "Tên Nhóm" } };
         refData.AddRange(groups.Select(g => new[] { g.Number, g.Name }));
+        var refSheets = new Dictionary<string, IEnumerable<string[]>> { { "Danh Sách Nhóm", refData } };
 
-        var referenceSheets = new Dictionary<string, IEnumerable<string[]>>
-        {
-            { "Danh Sách Nhóm", refData }
-        };
-
-        var fileBytes = ExcelService.GenerateTemplate(columns, referenceSheets: referenceSheets);
+        var fileBytes = ExcelService.GenerateTemplate(columns, referenceSheets: refSheets);
         using var streamRef = new DotNetStreamReference(new MemoryStream(fileBytes));
-        await JS.InvokeVoidAsync("downloadFileFromStream", "Template_CuaHang.xlsx", streamRef);
+        await JS.InvokeVoidAsync("downloadFileFromStream", "Template_SanPham.xlsx", streamRef);
     }
 
     private async Task UploadFiles(IBrowserFile file)
@@ -139,27 +140,20 @@ else
             await stream.CopyToAsync(ms);
             ms.Position = 0;
 
-            var expectedColumns = new[] { "Mã Cửa hàng", "Tên Cửa hàng", "Nhóm Cửa hàng (Mã Nhóm)", "Số bàn", "Doanh thu tối thiểu", "Tỷ lệ đóng góp" };
+            var expectedColumns = new[] { "Mã SP", "Tên Sản phẩm", "Nhóm SP (Mã)", "Đơn vị tính", "Giá bán", "Giá vốn" };
             var data = ExcelService.ReadExcel(ms, expectedColumns);
             
-            // Map Group Number -> Id
-            var groups = await StoreService.GetAllStoreGroupsAsync();
-            var groupMap = groups.ToDictionary(g => g.Number, g => g.Id, StringComparer.OrdinalIgnoreCase);
-
-            previewData = new List<StoreViewModel>();
+            previewData = new List<ProductViewModel>();
             foreach (var row in data)
             {
-                string groupCode = row["Nhóm Cửa hàng (Mã Nhóm)"];
-                int groupId = groupMap.ContainsKey(groupCode) ? groupMap[groupCode] : 0;
-
-                previewData.Add(new StoreViewModel
+                previewData.Add(new ProductViewModel
                 {
-                    Number = row["Mã Cửa hàng"], // Fixed: Add missing Number mapping
-                    Name = row["Tên Cửa hàng"],
-                    GroupId = groupId,
-                    NumOfTables = int.TryParse(row["Số bàn"], out int tables) ? tables : 0,
-                    MinMenuSelling = int.TryParse(row["Doanh thu tối thiểu"], out int minSelling) ? minSelling : 0,
-                    MinSalesContribution = int.TryParse(row["Tỷ lệ đóng góp"], out int minSales) ? minSales : 0
+                    Number = row["Mã SP"],
+                    Name = row["Tên Sản phẩm"],
+                    GroupCode = row["Nhóm SP (Mã)"],
+                    Unit = row["Đơn vị tính"],
+                    SellingPrice = decimal.TryParse(row["Giá bán"], out decimal sp) ? sp : 0,
+                    Cosprice = decimal.TryParse(row["Giá vốn"], out decimal cp) ? cp : 0
                 });
             }
             
@@ -185,7 +179,7 @@ else
         
         foreach (var vm in previewData)
         {
-            var res = await StoreService.SaveStoreAsync(vm, "admin_import");
+            var res = await ProductService.SaveProductAsync(vm, "admin_import");
             if (res.IsSuccess) successCount++;
             else failCount++;
         }

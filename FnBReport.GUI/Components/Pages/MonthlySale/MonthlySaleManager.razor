@@ -1,0 +1,388 @@
+@page "/monthly-sale"
+@using FnBReport.GUI.ViewModels
+@using FnBReport.GUI.Services
+@inject IMonthlySaleAppService MonthlySaleAppService
+@inject IExcelService ExcelService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject NavigationManager NavManager
+
+<div class="d-flex align-center mb-4">
+    <MudText Typo="Typo.h5" Class="mr-4">Nhập Báo cáo Bán hàng Tháng</MudText>
+    @if (Model != null)
+    {
+        @if (Model.Id == 0)
+        {
+            <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Filled">BẢN NHÁP (Chưa lưu CSDL)</MudChip>
+        }
+        else
+        {
+            <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">ĐÃ LƯU CSDL</MudChip>
+        }
+    }
+</div>
+
+@if (Model == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudCard Class="mb-4">
+        <MudCardContent>
+            <MudGrid>
+                <MudItem xs="12" sm="3">
+                    <MudTextField Value="@Model.StoreCode" Label="Mã Cửa hàng" ReadOnly="true" />
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudTextField Value="@Model.StoreName" Label="Tên Cửa hàng" ReadOnly="true" />
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudTextField Value="@($"{Model.Month}/{Model.Year}")" Label="Kỳ báo cáo (Tháng/Năm)" ReadOnly="true" />
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudTextField Value="@Model.Tables" Label="Tổng số bàn" ReadOnly="true" />
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudTextField Value="@Model.MinMenuSelling" Label="Mức Sell sàn" Format="N0" ReadOnly="true" />
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudTextField Value="@Model.MinSalesContribution" Label="Mức Contribution sàn" Format="N0" ReadOnly="true" />
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudTextField @bind-Value="Model.Tc" Label="Tổng Khách (TC)" HelperText="Nhập tay" Required="true" />
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudTextField Value="@Model.Sales" Label="Tổng Sales" Format="N0" ReadOnly="true" />
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudTextField Value="@Model.Cos" Label="Tổng Giá vốn (COS)" Format="N0" ReadOnly="true" />
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudTextField Value="@Model.TotalMargin" Label="Lợi nhuận (Margin)" Format="N0" ReadOnly="true" />
+                </MudItem>
+            </MudGrid>
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveReport" Class="mr-2" StartIcon="@Icons.Material.Filled.Save">Lưu Báo Cáo</MudButton>
+            
+            <MudFileUpload T="IBrowserFile" @ref="fileUpload" FilesChanged="UploadFiles" Accept=".xlsx" Class="mr-2">
+                <ActivatorContent>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.Upload">Nhập Excel</MudButton>
+                </ActivatorContent>
+            </MudFileUpload>
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Info" OnClick="DownloadTemplate" Class="mr-2" StartIcon="@Icons.Material.Filled.Download">Tải dữ liệu mẫu</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mr-2" StartIcon="@Icons.Material.Filled.Calculate" Disabled="@(Model.Id == 0)">Tính toán Chỉ số</MudButton>
+        </MudCardActions>
+    </MudCard>
+
+    @if (previewData != null && previewData.Any())
+    {
+        <MudText Typo="Typo.h6" Class="mb-2" Color="Color.Primary">Xem trước dữ liệu Nhập Excel</MudText>
+        
+        <div class="d-flex gap-2 mb-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="ConfirmImport" StartIcon="@Icons.Material.Filled.Check">Xác nhận Import</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="CancelImport" StartIcon="@Icons.Material.Filled.Close">Hủy</MudButton>
+        </div>
+
+        <MudDataGrid Items="@previewData" Hover="true" Striped="true">
+            <Columns>
+                <PropertyColumn Property="x => x.ProductCode" Title="Mã Món" />
+                <PropertyColumn Property="x => x.ProductName" Title="Tên Món" />
+                <PropertyColumn Property="x => x.Unit" Title="ĐVT" />
+                <PropertyColumn Property="x => x.GroupCode" Title="Nhóm" />
+                <PropertyColumn Property="x => x.Cosprice" Title="Giá vốn" Format="N0" />
+                <PropertyColumn Property="x => x.SellingPrice" Title="Giá bán" Format="N0" />
+                <PropertyColumn Property="x => x.Margin" Title="Lợi nhuận" Format="N0" />
+                <PropertyColumn Property="x => x.SoldQuantity" Title="SL Bán (Mới)" />
+            </Columns>
+        </MudDataGrid>
+    }
+    else
+    {
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+            <MudTabPanel Text="Chi tiết Bán hàng (Sale Data)">
+                <MudDataGrid Items="@Model.Details" Hover="true" Striped="true" Virtualize="true">
+                    <Columns>
+                        <PropertyColumn Property="x => x.ProductCode" Title="Mã Món" />
+                        <PropertyColumn Property="x => x.ProductName" Title="Tên Món" />
+                        <PropertyColumn Property="x => x.Unit" Title="ĐVT" />
+                        <PropertyColumn Property="x => x.GroupCode" Title="Nhóm" />
+                        <PropertyColumn Property="x => x.Cosprice" Title="Giá vốn" Format="N0" />
+                        <PropertyColumn Property="x => x.SellingPrice" Title="Giá bán" Format="N0" />
+                        <PropertyColumn Property="x => x.Margin" Title="Lợi nhuận" Format="N0" />
+                        <TemplateColumn Title="SL Bán">
+                            <CellTemplate>
+                                <MudNumericField @bind-Value="context.Item.SoldQuantity" Min="0" Variant="Variant.Outlined" Margin="Margin.Dense" HideSpinButtons="true" />
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            </MudTabPanel>
+            <MudTabPanel Text="Kết quả Phân tích (Menu Mix)">
+                <MudText Typo="Typo.body1" Color="Color.Warning">Sẽ triển khai ở Task 4 (Tính toán Chỉ số)</MudText>
+            </MudTabPanel>
+        </MudTabs>
+    }
+}
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? StoreCode { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int Year { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int Month { get; set; }
+
+    private MonthlySaleHeaderViewModel? Model;
+    private List<MonthlySaleViewModel>? previewData = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(StoreCode) || Year == 0 || Month == 0)
+        {
+            NavManager.NavigateTo("/");
+            return;
+        }
+
+        Model = await MonthlySaleAppService.GetOrInitMonthlySaleAsync(StoreCode, Year, Month);
+        RecalculateHeaderTotals();
+    }
+
+    private void RecalculateHeaderTotals()
+    {
+        if (Model != null && Model.Details != null)
+        {
+            Model.Sales = Model.Details.Sum(x => x.SellingPrice * x.SoldQuantity);
+            Model.Cos = Model.Details.Sum(x => x.Cosprice * x.SoldQuantity);
+            Model.TotalMargin = Model.Sales - (Model.Cos ?? 0);
+        }
+    }
+
+    private async Task SaveReport()
+    {
+        if (Model == null) return;
+        RecalculateHeaderTotals();
+        
+        var result = await MonthlySaleAppService.SaveMonthlySaleAsync(Model, "admin");
+        if (result.IsSuccess)
+        {
+            Snackbar.Add("Lưu báo cáo thành công", Severity.Success);
+            // Re-fetch to get updated IDs
+            Model = await MonthlySaleAppService.GetOrInitMonthlySaleAsync(Model.StoreCode, Model.Year, Model.Month);
+        }
+        else
+        {
+            Snackbar.Add(result.Message, Severity.Error);
+        }
+    }
+
+    private async Task DownloadTemplate()
+    {
+        if (Model == null) return;
+        
+        // Sheet 1: StoreInformation
+        var storeColumns = new[] { "Trường thông tin", "Giá trị" };
+        int dataRowsCount = Model.Details.Count() + 1;
+        var storeData = new List<string[]>
+        {
+            new[] { "Năm", Model.Year.ToString() },
+            new[] { "Tháng", Model.Month.ToString() },
+            new[] { "Mã Cửa hàng", Model.StoreCode },
+            new[] { "Tên Cửa hàng", Model.StoreName },
+            new[] { "Tổng số bàn", Model.Tables?.ToString() ?? "0" },
+            new[] { "Mức Sell sàn", Model.MinMenuSelling?.ToString() ?? "0" },
+            new[] { "Mức Contribution sàn", Model.MinSalesContribution?.ToString() ?? "0" },
+            new[] { "Tổng Khách (TC)", Model.Tc.ToString() },
+            new[] { "Tổng Sales", $"=SUMPRODUCT(Data!F2:F{dataRowsCount}, Data!G2:G{dataRowsCount})" },
+            new[] { "Tổng Giá vốn (COS)", $"=SUMPRODUCT(Data!E2:E{dataRowsCount}, Data!G2:G{dataRowsCount})" },
+            new[] { "Lợi nhuận", "=B10-B11" }
+        };
+
+        // Sheet 2: Data
+        var dataColumns = new[] { "Mã Món", "Tên Món", "ĐVT", "Nhóm", "Giá vốn", "Giá bán", "Số lượng bán" };
+        var dataRows = new List<string[]> { dataColumns };
+        dataRows.AddRange(Model.Details.Select(g => new[] { 
+            g.ProductCode, 
+            g.ProductName, 
+            g.Unit, 
+            g.GroupCode, 
+            g.Cosprice.ToString(), 
+            g.SellingPrice.ToString(), 
+            g.SoldQuantity.ToString() 
+        }));
+        
+        var refSheets = new Dictionary<string, IEnumerable<string[]>> { { "Data", dataRows } };
+
+        var fileBytes = ExcelService.GenerateTemplate(storeColumns, storeData, refSheets, "StoreInformation");
+        using var streamRef = new DotNetStreamReference(new MemoryStream(fileBytes));
+        await JS.InvokeVoidAsync("downloadFileFromStream", $"Data_BanHang_{Model.StoreCode}_{Model.Month}_{Model.Year}.xlsx", streamRef);
+    }
+
+    private MudFileUpload<IBrowserFile>? fileUpload;
+    
+    private int? originalTc = null;
+    private int? originalTables = null;
+    private decimal? originalMinSelling = null;
+    private decimal? originalMinContribution = null;
+    private decimal? originalSales = null;
+    private decimal? originalCos = null;
+    private decimal? originalTotalMargin = null;
+
+    private async Task UploadFiles(IBrowserFile file)
+    {
+        if (file == null || Model == null) return;
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+
+            ms.Position = 0;
+            try {
+                var headerColumns = new[] { "Trường thông tin", "Giá trị" };
+                var headerData = ExcelService.ReadExcel(ms, headerColumns, "StoreInformation");
+                var tcRow = headerData.FirstOrDefault(x => x["Trường thông tin"] == "Tổng Khách (TC)");
+                if (tcRow != null && int.TryParse(tcRow["Giá trị"].Replace(",", ""), out int tc))
+                {
+                    originalTc = Model.Tc;
+                    Model.Tc = tc;
+                }
+                var tablesRow = headerData.FirstOrDefault(x => x["Trường thông tin"] == "Tổng số bàn");
+                if (tablesRow != null && int.TryParse(tablesRow["Giá trị"].Replace(",", ""), out int tables))
+                {
+                    originalTables = Model.Tables;
+                    Model.Tables = tables;
+                }
+                var minSellRow = headerData.FirstOrDefault(x => x["Trường thông tin"] == "Mức Sell sàn");
+                if (minSellRow != null && decimal.TryParse(minSellRow["Giá trị"].Replace(",", ""), out decimal minSell))
+                {
+                    originalMinSelling = Model.MinMenuSelling;
+                    Model.MinMenuSelling = minSell;
+                }
+                var minContRow = headerData.FirstOrDefault(x => x["Trường thông tin"] == "Mức Contribution sàn");
+                if (minContRow != null && decimal.TryParse(minContRow["Giá trị"].Replace(",", ""), out decimal minCont))
+                {
+                    originalMinContribution = Model.MinSalesContribution;
+                    Model.MinSalesContribution = minCont;
+                }
+            } catch { /* ignore if StoreInformation sheet is not found or readable */ }
+
+            ms.Position = 0;
+            var expectedColumns = new[] { "Mã Món", "Tên Món", "Giá vốn", "Giá bán", "Số lượng bán" };
+            var data = ExcelService.ReadExcel(ms, expectedColumns, "Data");
+            
+            previewData = new List<MonthlySaleViewModel>();
+            foreach (var row in data)
+            {
+                var pc = row["Mã Món"];
+                var matchingDetail = Model.Details.FirstOrDefault(x => x.ProductCode == pc);
+                if (matchingDetail != null)
+                {
+                    decimal cosprice = decimal.TryParse(row["Giá vốn"].Replace(",", ""), out decimal cp) ? cp : matchingDetail.Cosprice;
+                    decimal sellingPrice = decimal.TryParse(row["Giá bán"].Replace(",", ""), out decimal sp) ? sp : matchingDetail.SellingPrice;
+
+                    previewData.Add(new MonthlySaleViewModel
+                    {
+                        ProductCode = pc,
+                        ProductName = matchingDetail.ProductName,
+                        Unit = matchingDetail.Unit,
+                        GroupCode = matchingDetail.GroupCode,
+                        Cosprice = cosprice,
+                        SellingPrice = sellingPrice,
+                        Margin = sellingPrice - cosprice,
+                        SoldQuantity = int.TryParse(row["Số lượng bán"].Replace(",", ""), out int qty) ? qty : 0
+                    });
+                }
+            }
+            
+            // Temporary update header totals
+            originalSales = Model.Sales;
+            originalCos = Model.Cos;
+            originalTotalMargin = Model.TotalMargin;
+
+            Model.Sales = previewData.Sum(x => x.SellingPrice * x.SoldQuantity);
+            Model.Cos = previewData.Sum(x => x.Cosprice * x.SoldQuantity);
+            Model.TotalMargin = Model.Sales - (Model.Cos ?? 0);
+
+            Snackbar.Add($"Đọc file thành công. Vui lòng kiểm tra dữ liệu và Xác nhận Import.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi nhập file: {ex.Message}", Severity.Error, config => { config.RequireInteraction = true; });
+            if (fileUpload != null) await fileUpload.ClearAsync();
+        }
+    }
+
+    private async Task CancelImport()
+    {
+        previewData = null;
+        if (originalTc.HasValue && Model != null)
+        {
+            Model.Tc = originalTc.Value;
+        }
+        if (originalTables.HasValue && Model != null)
+        {
+            Model.Tables = originalTables.Value;
+        }
+        if (originalMinSelling.HasValue && Model != null)
+        {
+            Model.MinMenuSelling = originalMinSelling.Value;
+        }
+        if (originalMinContribution.HasValue && Model != null)
+        {
+            Model.MinSalesContribution = originalMinContribution.Value;
+        }
+        if (Model != null && originalSales.HasValue)
+        {
+            Model.Sales = originalSales.Value;
+            Model.Cos = originalCos;
+            Model.TotalMargin = originalTotalMargin.Value;
+        }
+        originalTc = null;
+        originalTables = null;
+        originalMinSelling = null;
+        originalMinContribution = null;
+        originalSales = null;
+        originalCos = null;
+        originalTotalMargin = null;
+        if (fileUpload != null) await fileUpload.ClearAsync();
+    }
+
+    private async Task ConfirmImport()
+    {
+        if (previewData == null || Model == null) return;
+
+        int updateCount = 0;
+        foreach (var previewItem in previewData)
+        {
+            var detailItem = Model.Details.FirstOrDefault(x => x.ProductCode == previewItem.ProductCode);
+            if (detailItem != null)
+            {
+                detailItem.Cosprice = previewItem.Cosprice;
+                detailItem.SellingPrice = previewItem.SellingPrice;
+                detailItem.Margin = previewItem.Margin;
+                detailItem.SoldQuantity = previewItem.SoldQuantity;
+                updateCount++;
+            }
+        }
+        
+        RecalculateHeaderTotals();
+        previewData = null;
+        originalTc = null;
+        originalTables = null;
+        originalMinSelling = null;
+        originalMinContribution = null;
+        originalSales = null;
+        originalCos = null;
+        originalTotalMargin = null;
+        if (fileUpload != null) await fileUpload.ClearAsync();
+        Snackbar.Add($"Cập nhật thành công {updateCount} món vào lưới. Vui lòng nhấn Lưu Báo Cáo để ghi vào CSDL.", Severity.Success, config => { config.RequireInteraction = true; });
+    }
+}

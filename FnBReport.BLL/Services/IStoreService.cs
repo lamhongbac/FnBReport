@@ -9,6 +9,8 @@ namespace FnBReport.BLL.Services
     {
         Task<IEnumerable<StoreGroup>> GetAllStoreGroupsAsync();
         Task<BOProcessResult> CreateStoreGroupAsync(StoreGroup group, string createdBy);
+        Task<BOProcessResult> UpdateStoreGroupAsync(StoreGroup group, string updatedBy);
+        Task<BOProcessResult> DeleteStoreGroupAsync(int id, string deletedBy);
 
         Task<IEnumerable<Store>> GetAllStoresAsync();
         Task<Store?> GetStoreByIdAsync(int id);

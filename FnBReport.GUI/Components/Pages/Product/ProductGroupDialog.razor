@@ -1,6 +1,6 @@
 @using FnBReport.GUI.ViewModels
 @using FnBReport.GUI.Services
-@inject IStoreAppService StoreService
+@inject IProductAppService ProductService
 @inject ISnackbar Snackbar
 
 <MudDialog>
@@ -13,6 +13,9 @@
                 </MudItem>
                 <MudItem xs="12">
                     <MudTextField @bind-Value="Model.Name" Label="Tên Nhóm" For="@(() => Model.Name)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Model.Category" Label="Danh mục (Category)" For="@(() => Model.Category)" Variant="Variant.Outlined" Margin="Margin.Dense" />
                 </MudItem>
             </MudGrid>
         </EditForm>
@@ -27,11 +30,11 @@
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
 
     [Parameter]
-    public StoreGroupViewModel Model { get; set; } = new();
+    public ProductGroupViewModel Model { get; set; } = new();
 
     private async Task OnValidSubmit()
     {
-        var result = await StoreService.SaveStoreGroupAsync(Model, "admin");
+        var result = await ProductService.SaveProductGroupAsync(Model, "admin");
         if (result.OK)
         {
             Snackbar.Add(Model.Id == 0 ? "Thêm nhóm thành công" : "Cập nhật nhóm thành công", Severity.Success);
@@ -39,6 +42,7 @@
         }
         else
         {
+            // Yêu cầu: Show nguyên văn lỗi DB
             Snackbar.Add(result.Message, Severity.Error);
         }
     }

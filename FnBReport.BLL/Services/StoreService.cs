@@ -74,6 +74,28 @@ namespace FnBReport.BLL.Services
             return BOProcessResult.Success();
         }
 
+        public async Task<BOProcessResult> UpdateStoreGroupAsync(StoreGroup group, string updatedBy)
+        {
+            var valResult = await ValidateStoreGroupAsync(group);
+            if (!valResult.IsSuccess) return valResult;
+
+            var existing = await _groupRepo.GetByIdAsync(group.Id);
+            if (existing == null) return BOProcessResult.Failed(DomainErrorCodes.StoreGroup.NotFound);
+
+            existing.Name = group.Name;
+            existing.Number = group.Number;
+            existing.ModifiedBy = updatedBy;
+
+            await _groupRepo.UpdateAsync(existing);
+            return BOProcessResult.Success();
+        }
+
+        public async Task<BOProcessResult> DeleteStoreGroupAsync(int id, string deletedBy)
+        {
+            await _groupRepo.DeleteSoftAsync(id, deletedBy);
+            return BOProcessResult.Success();
+        }
+
         public async Task<IEnumerable<Store>> GetAllStoresAsync() => await _storeRepo.GetAllAsync();
 
         public async Task<Store?> GetStoreByIdAsync(int id) => await _storeRepo.GetByIdAsync(id);

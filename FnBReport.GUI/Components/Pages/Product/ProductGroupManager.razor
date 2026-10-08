@@ -1,0 +1,184 @@
+@page "/product-groups"
+@using FnBReport.GUI.ViewModels
+@using FnBReport.GUI.Services
+@inject IProductAppService ProductService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IExcelService ExcelService
+@inject IJSRuntime JS
+
+<MudText Typo="Typo.h5" Class="mb-4">Quản lý Nhóm Sản phẩm</MudText>
+
+<div class="d-flex gap-2 mb-4">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddDialog">THÊM MỚI</MudButton>
+    <MudButton Variant="Variant.Outlined" Color="Color.Info" OnClick="DownloadTemplate">Tải Template</MudButton>
+    <MudFileUpload T="IBrowserFile" FilesChanged="UploadFiles" Accept=".xlsx">
+        <ActivatorContent>
+            <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.Upload">Nhập Excel</MudButton>
+        </ActivatorContent>
+    </MudFileUpload>
+</div>
+
+@if (previewData != null && previewData.Any())
+{
+    <MudText Typo="Typo.h6" Class="mb-2" Color="Color.Primary">Xem trước dữ liệu Nhập Excel</MudText>
+    
+    <div class="d-flex gap-2 mb-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="ConfirmImport" StartIcon="@Icons.Material.Filled.Check">Xác nhận Import</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="CancelImport" StartIcon="@Icons.Material.Filled.Close">Hủy</MudButton>
+    </div>
+
+    <MudDataGrid Items="@previewData" Hover="true">
+        <Columns>
+            <PropertyColumn Property="x => x.Number" Title="Mã Nhóm" />
+            <PropertyColumn Property="x => x.Name" Title="Tên Nhóm" />
+            <PropertyColumn Property="x => x.Category" Title="Danh mục" />
+        </Columns>
+    </MudDataGrid>
+}
+else
+{
+    <MudDataGrid T="ProductGroupViewModel" Items="@productGroups" Hover="true">
+        <Columns>
+            <PropertyColumn Property="x => x.Number" Title="Mã Nhóm" />
+            <PropertyColumn Property="x => x.Name" Title="Tên Nhóm" />
+            <PropertyColumn Property="x => x.Category" Title="Danh mục" />
+            <TemplateColumn Title="Thao tác">
+                <CellTemplate>
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditDialog(context.Item)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => DeleteProductGroup(context.Item.Id)" />
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+    </MudDataGrid>
+}
+
+@code {
+    private IEnumerable<ProductGroupViewModel> productGroups = new List<ProductGroupViewModel>();
+    private List<ProductGroupViewModel>? previewData = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        productGroups = await ProductService.GetAllProductGroupsAsync();
+    }
+
+    private async Task OpenAddDialog()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<ProductGroupDialog>("Thêm Nhóm Sản phẩm", options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadData();
+        }
+    }
+
+    private async Task OpenEditDialog(ProductGroupViewModel group)
+    {
+        var parameters = new DialogParameters { ["Model"] = new ProductGroupViewModel { Id = group.Id, Name = group.Name, Number = group.Number, Category = group.Category } };
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<ProductGroupDialog>("Sửa Nhóm Sản phẩm", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadData();
+        }
+    }
+
+    private async Task DeleteProductGroup(int id)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Xác nhận xóa", 
+            "Bạn có chắc chắn muốn xóa nhóm sản phẩm này không?", 
+            yesText: "Xóa", cancelText: "Hủy");
+
+        if (confirm == true)
+        {
+            var res = await ProductService.DeleteProductGroupAsync(id, "admin");
+            if (res.IsSuccess)
+            {
+                Snackbar.Add("Xóa thành công", Severity.Success);
+                await LoadData();
+            }
+            else
+            {
+                Snackbar.Add(res.Message, Severity.Error);
+            }
+        }
+    }
+
+    private async Task DownloadTemplate()
+    {
+        var columns = new[] { "Mã Nhóm", "Tên Nhóm", "Danh mục" };
+        var fileBytes = ExcelService.GenerateTemplate(columns);
+        using var streamRef = new DotNetStreamReference(new MemoryStream(fileBytes));
+        await JS.InvokeVoidAsync("downloadFileFromStream", "Template_NhomSanPham.xlsx", streamRef);
+    }
+
+    private async Task UploadFiles(IBrowserFile file)
+    {
+        if (file == null) return;
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+
+            var expectedColumns = new[] { "Mã Nhóm", "Tên Nhóm", "Danh mục" };
+            var data = ExcelService.ReadExcel(ms, expectedColumns);
+            
+            previewData = new List<ProductGroupViewModel>();
+            foreach (var row in data)
+            {
+                previewData.Add(new ProductGroupViewModel
+                {
+                    Number = row["Mã Nhóm"],
+                    Name = row["Tên Nhóm"],
+                    Category = row.ContainsKey("Danh mục") ? row["Danh mục"] : "alacarte"
+                });
+            }
+            
+            Snackbar.Add($"Đọc file thành công. Vui lòng kiểm tra dữ liệu và Xác nhận Import.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi nhập file: {ex.Message}", Severity.Error, config => { config.RequireInteraction = true; });
+        }
+    }
+
+    private void CancelImport()
+    {
+        previewData = null;
+    }
+
+    private async Task ConfirmImport()
+    {
+        if (previewData == null) return;
+        
+        int successCount = 0;
+        int failCount = 0;
+        
+        foreach (var vm in previewData)
+        {
+            var res = await ProductService.SaveProductGroupAsync(vm, "admin_import");
+            if (res.IsSuccess) successCount++;
+            else failCount++;
+        }
+        
+        if (failCount == 0)
+            Snackbar.Add($"Nhập thành công {successCount}/{previewData.Count} bản ghi.", Severity.Success);
+        else
+            Snackbar.Add($"Thành công {successCount}, Thất bại {failCount}.", Severity.Warning, config => { config.RequireInteraction = true; });
+        
+        previewData = null;
+        await LoadData();
+    }
+}

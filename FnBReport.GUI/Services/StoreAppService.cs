@@ -11,7 +11,8 @@ namespace FnBReport.GUI.Services
     public interface IStoreAppService
     {
         Task<IEnumerable<StoreGroupViewModel>> GetAllStoreGroupsAsync();
-        Task<BOProcessResult> CreateStoreGroupAsync(StoreGroupViewModel vm, string createdBy);
+        Task<BOProcessResult> SaveStoreGroupAsync(StoreGroupViewModel vm, string username);
+        Task<BOProcessResult> DeleteStoreGroupAsync(int id, string deletedBy);
         Task<IEnumerable<StoreViewModel>> GetAllStoresAsync();
         Task<BOProcessResult> SaveStoreAsync(StoreViewModel vm, string username);
         Task<BOProcessResult> DeleteStoreAsync(int id, string deletedBy);
@@ -35,7 +36,7 @@ namespace FnBReport.GUI.Services
                 "STORE_NOT_FOUND" => "Không tìm thấy Cửa hàng.",
                 "STOREGROUP_NAME_EMPTY" => "Tên Nhóm Cửa hàng không được để trống.",
                 "STOREGROUP_NOT_FOUND" => "Không tìm thấy Nhóm Cửa hàng.",
-                _ => "Đã có lỗi xảy ra (Mã lỗi: " + code + ")."
+                _ => code // Return raw code (or exception message) if unknown, don't use generic wrapper
             };
         }
 
@@ -45,12 +46,44 @@ namespace FnBReport.GUI.Services
             return groups.Adapt<IEnumerable<StoreGroupViewModel>>();
         }
 
-        public async Task<BOProcessResult> CreateStoreGroupAsync(StoreGroupViewModel vm, string createdBy)
+        public async Task<BOProcessResult> SaveStoreGroupAsync(StoreGroupViewModel vm, string username)
         {
-            var entity = vm.Adapt<StoreGroup>();
-            var result = await _storeService.CreateStoreGroupAsync(entity, createdBy);
-            if (!result.IsSuccess) result.Message = TranslateErrorCode(result.Code);
-            return result;
+            try 
+            {
+                var entity = vm.Adapt<StoreGroup>();
+                BOProcessResult result;
+
+                if (vm.Id == 0)
+                {
+                    result = await _storeService.CreateStoreGroupAsync(entity, username);
+                    if (result.IsSuccess) vm.Id = entity.Id;
+                }
+                else
+                {
+                    result = await _storeService.UpdateStoreGroupAsync(entity, username);
+                }
+
+                if (!result.IsSuccess) result.Message = TranslateErrorCode(result.Code);
+                return result;
+            }
+            catch (System.Exception ex)
+            {
+                return BOProcessResult.Failed(ex.Message);
+            }
+        }
+
+        public async Task<BOProcessResult> DeleteStoreGroupAsync(int id, string deletedBy)
+        {
+            try 
+            {
+                var result = await _storeService.DeleteStoreGroupAsync(id, deletedBy);
+                if (!result.IsSuccess) result.Message = TranslateErrorCode(result.Code);
+                return result;
+            }
+            catch (System.Exception ex)
+            {
+                return BOProcessResult.Failed(ex.Message);
+            }
         }
 
         public async Task<IEnumerable<StoreViewModel>> GetAllStoresAsync()
@@ -61,23 +94,42 @@ namespace FnBReport.GUI.Services
 
         public async Task<BOProcessResult> SaveStoreAsync(StoreViewModel vm, string username)
         {
-            var entity = vm.Adapt<Store>();
-            BOProcessResult result;
+            try
+            {
+                var entity = vm.Adapt<Store>();
+                BOProcessResult result;
 
-            if (vm.Id == 0)
-                result = await _storeService.CreateStoreAsync(entity, username);
-            else
-                result = await _storeService.UpdateStoreAsync(entity, username);
+                if (vm.Id == 0)
+                {
+                    result = await _storeService.CreateStoreAsync(entity, username);
+                    if (result.IsSuccess) vm.Id = entity.Id;
+                }
+                else
+                {
+                    result = await _storeService.UpdateStoreAsync(entity, username);
+                }
 
-            if (!result.IsSuccess) result.Message = TranslateErrorCode(result.Code);
-            return result;
+                if (!result.IsSuccess) result.Message = TranslateErrorCode(result.Code);
+                return result;
+            }
+            catch (System.Exception ex)
+            {
+                return BOProcessResult.Failed(ex.Message);
+            }
         }
 
         public async Task<BOProcessResult> DeleteStoreAsync(int id, string deletedBy)
         {
-            var result = await _storeService.DeleteStoreAsync(id, deletedBy);
-            if (!result.IsSuccess) result.Message = TranslateErrorCode(result.Code);
-            return result;
+            try 
+            {
+                var result = await _storeService.DeleteStoreAsync(id, deletedBy);
+                if (!result.IsSuccess) result.Message = TranslateErrorCode(result.Code);
+                return result;
+            }
+            catch (System.Exception ex)
+            {
+                return BOProcessResult.Failed(ex.Message);
+            }
         }
     }
 }
